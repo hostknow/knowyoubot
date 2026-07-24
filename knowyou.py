@@ -43,7 +43,7 @@ DB_PATH = os.path.join(DATA_DIR, "bot.db")
 
 # ====================== ОСНОВНОЙ ТЕКСТ ======================
 MAIN_TEXT_HARD = (
-    "*#IKNOWYOU — комьюнити единомышленников во всех сферах с применением AI.*\n\n"
+    "#IKNOWYOU — комьюнити единомышленников во всех сферах с применением AI.\n\n"
     "Поможем научиться пользоваться нейросетями. Без воды.\n\n"
     "Курсы на YouTube, Instagram, TikTok — всё это чушь.\n"
     "Люди говорят об этом, чтобы набить себе просмотры.\n\n"
@@ -55,29 +55,28 @@ MAIN_TEXT_HARD = (
     "Рады приветствовать каждого!\n\n"
     "Заработайте, пригласив друга.\n\n"
     "Личная поддержка от создателей сообщества обеспечена.\n\n"
-    "👇 Нажми *«Войти в клуб»*"
+    "👇 Нажми Войти в клуб"
 )
 
 HELP_TEXT = (
-    "🤖 *Помощь по боту IKNOWYOU*\n\n"
-    "📌 *Основные команды:*\n"
+    "🤖 Помощь по боту IKNOWYOU\n\n"
+    "📌 Основные команды:\n"
     "/start — Главное меню\n"
     "/balance — Мой баланс\n"
     "/help — Эта справка\n\n"
-    "📌 *Как купить доступ:*\n"
+    "📌 Как купить доступ:\n"
     "1. Нажми «Войти в клуб»\n"
     "2. Введи промокод (если есть)\n"
     "3. Нажми «Оплатить»\n"
     "4. Перейди по ссылке CryptoBot\n"
     "5. Нажми «Я оплатил»\n\n"
-    "📌 *Партнёрка:*\n"
+    "📌 Партнёрка:\n"
     "Приводи друзей и получай IKY и $\n\n"
-    "📌 *Поддержка:*\n"
+    "📌 Поддержка:\n"
     "@managerai — по всем вопросам\n"
-    "🔗 {AI_FORUM_INVITE_LINK}"
 )
 
-NEW_ALERT_TEXT = "⚡️ Осталось *{remaining} мест* по {price}$ (≈ {rub} руб.)"
+NEW_ALERT_TEXT = "⚡️ Осталось {remaining} мест по {price}$ (≈ {rub} руб.)"
 
 # ------------------------- ИНИЦИАЛИЗАЦИЯ БД -------------------------
 def init_db():
@@ -146,6 +145,29 @@ def init_db():
     print("✅ База данных инициализирована.")
 
 init_db()
+
+# ------------------------- БЕЗОПАСНАЯ ОТПРАВКА СООБЩЕНИЙ -------------------------
+async def safe_send_message(chat_id, text, reply_markup=None, disable_web_page_preview=False):
+    """Безопасная отправка сообщения с обработкой ошибок Markdown"""
+    try:
+        return await bot.send_message(
+            chat_id, 
+            text, 
+            parse_mode="Markdown",
+            reply_markup=reply_markup,
+            disable_web_page_preview=disable_web_page_preview
+        )
+    except Exception as e:
+        if "Can't find end of the entity" in str(e) or "parse entities" in str(e):
+            return await bot.send_message(
+                chat_id, 
+                text, 
+                parse_mode=None,
+                reply_markup=reply_markup,
+                disable_web_page_preview=disable_web_page_preview
+            )
+        else:
+            raise
 
 # ------------------------- ФУНКЦИИ БД -------------------------
 async def add_user(user_id, username, first_name, referred_by=None, referred_by_username=None, promo_code=None):
@@ -362,7 +384,7 @@ async def backup_database():
         size = os.path.getsize(zip_path) / 1024
         
         caption = (
-            f"📦 *Бэкап базы данных*\n\n"
+            f"📦 Бэкап базы данных\n\n"
             f"📅 Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
             f"📁 Файл: {os.path.basename(zip_path)}\n"
             f"📊 Размер: {size:.1f} КБ\n"
@@ -373,7 +395,7 @@ async def backup_database():
             chat_id=ADMIN_ID,
             document=FSInputFile(zip_path),
             caption=caption,
-            parse_mode="Markdown"
+            parse_mode=None
         )
         
         await cleanup_old_backups(backup_dir, keep=7)
@@ -383,8 +405,8 @@ async def backup_database():
         try:
             await bot.send_message(
                 ADMIN_ID,
-                f"❌ *Ошибка бэкапа!*\n\n{str(e)}",
-                parse_mode="Markdown"
+                f"❌ Ошибка бэкапа!\n\n{str(e)}",
+                parse_mode=None
             )
         except:
             pass
@@ -460,7 +482,7 @@ async def poll_invoices(bot_instance):
                 if await check_invoice(inv_id) == "paid":
                     await set_invoice_paid(inv_id)
                     if await get_remaining_slots() <= 0:
-                        await bot_instance.send_message(user_id, "❌ Все места заняты. Деньги вернут в течение 7 дней.")
+                        await safe_send_message(user_id, "❌ Все места заняты. Деньги вернут в течение 7 дней.")
                         continue
                     price = await get_user_price(user_id)
                     await save_purchase(user_id, price)
@@ -474,26 +496,25 @@ async def poll_invoices(bot_instance):
                         try:
                             ref_username = await get_referred_by_username(user_id)
                             name = ref_username or f"пользователя {ref}"
-                            await bot_instance.send_message(ref, f"🎉 Реферал @{name} купил!\n🪙 +{REF_BUY_COINS} IKY\n💵 +{REF_BUY_USD}$", parse_mode="Markdown")
+                            await safe_send_message(ref, f"🎉 Реферал @{name} купил!\n🪙 +{REF_BUY_COINS} IKY\n💵 +{REF_BUY_USD}$")
                         except:
                             pass
-                    await bot_instance.send_message(
+                    await safe_send_message(
                         ADMIN_ID,
-                        f"🎉 *НОВАЯ ПОКУПКА!*\n\n"
+                        f"🎉 НОВАЯ ПОКУПКА!\n\n"
                         f"Пользователь: @{await get_username(user_id) or user_id}\n"
                         f"Сумма: {price}$\n"
                         f"Способ: CryptoBot\n"
                         f"Время: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
                     )
-                    await bot_instance.send_message(
+                    await safe_send_message(
                         user_id,
-                        f"✅ *Оплата прошла. Добро пожаловать в IKNOWYOU — AI!*\n\n"
+                        f"✅ Оплата прошла. Добро пожаловать в IKNOWYOU — AI!\n\n"
                         f"🔗 {AI_FORUM_INVITE_LINK}\n\n"
-                        f"📌 *Важно!*\n"
+                        f"📌 Важно!\n"
                         f"Если ссылка не работает — напиши менеджеру @managerai\n"
                         f"И приложи скриншот оплаты.\n\n"
-                        f"Напиши «я новенький» — тебя встретят 🤝",
-                        parse_mode="Markdown"
+                        f"Напиши «я новенький» — тебя встретят 🤝"
                     )
         except Exception as e:
             logging.error(f"poll_invoices: {e}")
@@ -589,7 +610,7 @@ async def show_main(target, is_callback=False):
     if os.path.exists(MAIN_PHOTO):
         await msg.answer_photo(photo=FSInputFile(MAIN_PHOTO), caption=text, reply_markup=menu_kb())
     else:
-        await msg.answer(text, reply_markup=menu_kb())
+        await safe_send_message(msg.chat.id, text, reply_markup=menu_kb())
 
 # ------------------------- ХЕНДЛЕРЫ -------------------------
 @dp.message(Command("start"))
@@ -621,7 +642,7 @@ async def cmd_start(message: Message, state: FSMContext):
         await add_balance(ref, coins=REF_JOIN_COINS)
         try:
             name = message.from_user.username or message.from_user.first_name
-            await bot.send_message(ref, f"👋 По твоей ссылке зашёл новый пользователь @{name}!\n🪙 +{REF_JOIN_COINS} IKY", parse_mode="Markdown")
+            await safe_send_message(ref, f"👋 По твоей ссылке зашёл новый пользователь @{name}!\n🪙 +{REF_JOIN_COINS} IKY")
         except:
             pass
     
@@ -630,9 +651,9 @@ async def cmd_start(message: Message, state: FSMContext):
         if price is not None:
             if not is_new:
                 await apply_promo_to_user(message.from_user.id, promo_code)
-            await message.answer(f"🎫 Промокод `{promo_code}` активирован! Цена доступа для вас составит {price}$ вместо {BASE_PRICE}$.")
+            await safe_send_message(message.from_user.id, f"🎫 Промокод {promo_code} активирован! Цена доступа для вас составит {price}$ вместо {BASE_PRICE}$.")
         else:
-            await message.answer(f"❌ Неверный или просроченный промокод `{promo_code}`. Цена будет {BASE_PRICE}$.")
+            await safe_send_message(message.from_user.id, f"❌ Неверный или просроченный промокод {promo_code}. Цена будет {BASE_PRICE}$.")
     
     await show_main(message)
 
@@ -642,28 +663,29 @@ async def cmd_balance(message: Message, state: FSMContext):
     c, d = await get_balance(message.from_user.id)
     referrals = await get_referrals(message.from_user.id)
     
-    text = f"💼 *Твой баланс*\n🪙 {c} IKY\n💵 {d:.2f}$\n\n"
+    text = f"💼 Твой баланс\n🪙 {c} IKY\n💵 {d:.2f}$\n\n"
     
     if referrals:
-        text += "👥 *Твои рефералы:*\n"
+        text += "👥 Твои рефералы:\n"
         for uid, username, first_name, reg_date in referrals:
             name = username or first_name or str(uid)
             text += f"• @{name} — {reg_date[:10]}\n"
         text += f"\nВсего рефералов: {len(referrals)}"
     else:
-        text += "👥 *У тебя пока нет рефералов.*\nПриводи друзей и получай бонусы!"
+        text += "👥 У тебя пока нет рефералов.\nПриводи друзей и получай бонусы!"
     
     uid = message.from_user.id
     link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
-    text += f"\n\n🔗 Твоя партнёрская ссылка:\n`{link}`\n\n💸 Вывод $ — @managerai"
+    text += f"\n\n🔗 Твоя партнёрская ссылка:\n{link}\n\n💸 Вывод $ — @managerai"
     
-    await message.answer(text, reply_markup=back_kb())
+    await safe_send_message(message.from_user.id, text, reply_markup=back_kb())
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(
-        HELP_TEXT.format(AI_FORUM_INVITE_LINK=AI_FORUM_INVITE_LINK),
+    await safe_send_message(
+        message.from_user.id,
+        HELP_TEXT,
         reply_markup=back_kb()
     )
 
@@ -672,23 +694,23 @@ async def cmd_backup(message: Message, state: FSMContext):
     await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer("⏳ Делаю бэкап...")
+    await safe_send_message(message.from_user.id, "⏳ Делаю бэкап...")
     success = await backup_database()
     if success:
-        await message.answer("✅ Бэкап создан и отправлен в Telegram!")
+        await safe_send_message(message.from_user.id, "✅ Бэкап создан и отправлен в Telegram!")
     else:
-        await message.answer("❌ Ошибка при создании бэкапа!")
+        await safe_send_message(message.from_user.id, "❌ Ошибка при создании бэкапа!")
 
 @dp.message(Command("restore"))
 async def cmd_restore(message: Message, state: FSMContext):
     await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer(
-        "🔄 *Восстановление БД*\n\n"
+    await safe_send_message(
+        message.from_user.id,
+        "🔄 Восстановление БД\n\n"
         "Отправь ZIP-файл с бэкапом.\n"
-        "⚠️ ВНИМАНИЕ: текущая БД будет заменена!",
-        parse_mode="Markdown"
+        "⚠️ ВНИМАНИЕ: текущая БД будет заменена!"
     )
     await state.set_state(AdminEdit.waiting_restore)
 
@@ -705,16 +727,16 @@ async def process_restore(message: Message, state: FSMContext):
         
         db_files = [f for f in os.listdir("temp_restore") if f.endswith(".db")]
         if not db_files:
-            await message.answer("❌ Не найден .db файл в архиве!")
+            await safe_send_message(message.from_user.id, "❌ Не найден .db файл в архиве!")
             return
         
         shutil.copy2(os.path.join("temp_restore", db_files[0]), DB_PATH)
         shutil.rmtree("temp_restore")
         os.remove(file_path)
         
-        await message.answer("✅ База данных восстановлена из бэкапа!")
+        await safe_send_message(message.from_user.id, "✅ База данных восстановлена из бэкапа!")
     except Exception as e:
-        await message.answer(f"❌ Ошибка восстановления: {e}")
+        await safe_send_message(message.from_user.id, f"❌ Ошибка восстановления: {e}")
     await state.clear()
 
 @dp.callback_query(F.data == "back")
@@ -729,24 +751,25 @@ async def cb_buy(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     
     if await has_access(callback.from_user.id):
-        await callback.message.answer(f"✅ Ты уже в клубе!\n🔗 {AI_FORUM_INVITE_LINK}", reply_markup=back_kb())
+        await safe_send_message(callback.from_user.id, f"✅ Ты уже в клубе!\n🔗 {AI_FORUM_INVITE_LINK}", reply_markup=back_kb())
         return
     
     remaining = await get_remaining_slots()
     if remaining <= 0:
-        await callback.message.answer("❌ Все места заняты! Следующий набор через неделю.")
+        await safe_send_message(callback.from_user.id, "❌ Все места заняты! Следующий набор через неделю.")
         return
     
     price = await get_user_price(callback.from_user.id)
     rub_price = price * 90
     
-    await callback.message.answer(
-        f"💳 *Оплата доступа в IKNOWYOU*\n\n"
-        f"💰 Цена: *{price} USDT* (≈ {rub_price} руб.)\n"
+    await safe_send_message(
+        callback.from_user.id,
+        f"💳 Оплата доступа в IKNOWYOU\n\n"
+        f"💰 Цена: {price} USDT (≈ {rub_price} руб.)\n"
         f"📌 Осталось мест: {remaining}\n\n"
-        f"📝 *Есть промокод?* Напиши его в сообщении.\n"
-        f"Если нет — нажми кнопку *«Оплатить»*.\n"
-        f"Если передумал — *«Отмена»*.",
+        f"📝 Есть промокод? Напиши его в сообщении.\n"
+        f"Если нет — нажми кнопку Оплатить.\n"
+        f"Если передумал — Отмена.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💸 Оплатить", callback_data="pay_now")],
             [InlineKeyboardButton(text="❌ Отмена", callback_data="back")],
@@ -761,9 +784,10 @@ async def process_promo_in_payment(message: Message, state: FSMContext):
     price = await get_promo_price(code)
     
     if price is None:
-        await message.answer(
+        await safe_send_message(
+            message.from_user.id,
             "❌ Неверный или уже использованный промокод.\n"
-            "Попробуй ещё раз или нажми *«Оплатить»*",
+            "Попробуй ещё раз или нажми Оплатить",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="💸 Оплатить", callback_data="pay_now")],
             ])
@@ -774,11 +798,12 @@ async def process_promo_in_payment(message: Message, state: FSMContext):
     rub_price = price * 90
     remaining = await get_remaining_slots()
     
-    await message.answer(
-        f"✅ Промокод `{code}` активирован!\n\n"
-        f"💰 Новая цена: *{price} USDT* (≈ {rub_price} руб.)\n"
+    await safe_send_message(
+        message.from_user.id,
+        f"✅ Промокод {code} активирован!\n\n"
+        f"💰 Новая цена: {price} USDT (≈ {rub_price} руб.)\n"
         f"📌 Осталось мест: {remaining}\n\n"
-        f"👇 Нажми *«Оплатить»*",
+        f"👇 Нажми Оплатить",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💸 Оплатить", callback_data="pay_now")],
             [InlineKeyboardButton(text="❌ Отмена", callback_data="back")],
@@ -792,25 +817,25 @@ async def pay_now(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     
     if await has_access(callback.from_user.id):
-        await callback.message.answer("✅ Ты уже в клубе!")
+        await safe_send_message(callback.from_user.id, "✅ Ты уже в клубе!")
         return
     
     price = await get_user_price(callback.from_user.id)
     remaining = await get_remaining_slots()
     
     if remaining <= 0:
-        await callback.message.answer("❌ Все места заняты!")
+        await safe_send_message(callback.from_user.id, "❌ Все места заняты!")
         return
     
     rub_price = price * 90
     alert_tpl = await get_setting("alert_text")
     alert = alert_tpl.format(remaining=remaining, price=price, rub=rub_price) if "{remaining}" in alert_tpl else f"⚡️ Осталось {remaining} мест по {price}$ (≈ {rub_price} руб.)"
     
-    text = f"{alert}\n\n💳 Для входа в клуб нужно оплатить *{price} USDT* (≈ {rub_price} руб.)\n\nПосле оплаты нажми «Я оплатил»."
+    text = f"{alert}\n\n💳 Для входа в клуб нужно оплатить {price} USDT (≈ {rub_price} руб.)\n\nПосле оплаты нажми «Я оплатил»."
     
     inv_id, pay_url = await create_invoice(price, "IKNOWYOUhub — доступ")
     if not inv_id:
-        await callback.message.answer("❌ Ошибка оплаты. Попробуй позже.")
+        await safe_send_message(callback.from_user.id, "❌ Ошибка оплаты. Попробуй позже.")
         return
     
     await save_invoice(inv_id, callback.from_user.id, price)
@@ -819,7 +844,7 @@ async def pay_now(callback: CallbackQuery, state: FSMContext):
     if os.path.exists(photo):
         await callback.message.answer_photo(photo=FSInputFile(photo), caption=text, reply_markup=pay_kb(pay_url, inv_id))
     else:
-        await callback.message.answer(text, reply_markup=pay_kb(pay_url, inv_id))
+        await safe_send_message(callback.from_user.id, text, reply_markup=pay_kb(pay_url, inv_id))
 
 @dp.callback_query(F.data.startswith("check_"))
 async def cb_check(callback: CallbackQuery, state: FSMContext):
@@ -835,13 +860,13 @@ async def cb_check(callback: CallbackQuery, state: FSMContext):
             user_id, amount = row
             
             if await has_access(user_id):
-                await callback.message.answer("✅ Ты уже в клубе!")
+                await safe_send_message(user_id, "✅ Ты уже в клубе!")
                 return
             
             await set_invoice_paid(inv_id)
             
             if await get_remaining_slots() <= 0:
-                await callback.message.answer("❌ Места закончились во время оплаты. Деньги вернут.")
+                await safe_send_message(user_id, "❌ Места закончились во время оплаты. Деньги вернут.")
                 return
             
             await save_purchase(user_id, amount)
@@ -857,7 +882,7 @@ async def cb_check(callback: CallbackQuery, state: FSMContext):
                 try:
                     ref_username = await get_referred_by_username(user_id)
                     name = ref_username or f"пользователя {ref}"
-                    await bot.send_message(ref, f"🎉 Реферал @{name} купил доступ!\n🪙 +{REF_BUY_COINS} IKY\n💵 +{REF_BUY_USD}$", parse_mode="Markdown")
+                    await safe_send_message(ref, f"🎉 Реферал @{name} купил доступ!\n🪙 +{REF_BUY_COINS} IKY\n💵 +{REF_BUY_USD}$")
                 except:
                     pass
             
@@ -866,10 +891,11 @@ async def cb_check(callback: CallbackQuery, state: FSMContext):
             except:
                 pass
             
-            await callback.message.answer(
-                f"✅ *Добро пожаловать в IKNOWYOU — AI!*\n\n"
+            await safe_send_message(
+                user_id,
+                f"✅ Добро пожаловать в IKNOWYOU — AI!\n\n"
                 f"🔗 {AI_FORUM_INVITE_LINK}\n\n"
-                f"📌 *Важно!*\n"
+                f"📌 Важно!\n"
                 f"Если ссылка не работает — напиши менеджеру @managerai\n"
                 f"И приложи скриншот оплаты.\n\n"
                 f"Напиши «я новенький» — тебя встретят 🤝",
@@ -877,16 +903,6 @@ async def cb_check(callback: CallbackQuery, state: FSMContext):
             )
     else:
         await safe(callback, "Платёж ещё не пришёл. Подожди пару минут.", alert=True)
-
-@dp.callback_query(F.data == "manager")
-async def cb_manager(callback: CallbackQuery, state: FSMContext):
-    await safe(callback)
-    await state.clear()
-    try:
-        await callback.message.delete()
-    except:
-        pass
-    await callback.message.answer("👨‍💼 Менеджер: @managerai\nПоможет с оплатой и даст доступ.", reply_markup=back_kb())
 
 @dp.callback_query(F.data == "manager_pay")
 async def cb_manager_pay(callback: CallbackQuery, state: FSMContext):
@@ -900,9 +916,10 @@ async def cb_manager_pay(callback: CallbackQuery, state: FSMContext):
     price = await get_user_price(callback.from_user.id)
     rub_price = price * 90
     
-    await callback.message.answer(
-        f"👨‍💼 *Оплата через менеджера*\n\n"
-        f"💰 Сумма: *{price} USDT* (≈ {rub_price} руб.)\n\n"
+    await safe_send_message(
+        callback.from_user.id,
+        f"👨‍💼 Оплата через менеджера\n\n"
+        f"💰 Сумма: {price} USDT (≈ {rub_price} руб.)\n\n"
         f"Напиши менеджеру @managerai и он поможет с оплатой.\n\n"
         f"После подтверждения оплаты доступ будет открыт.",
         reply_markup=back_kb()
@@ -918,23 +935,23 @@ async def cb_ref(callback: CallbackQuery, state: FSMContext):
     referrals = await get_referrals(uid)
     link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
     
-    text = f"🔗 *Партнёрка*\n\n"
+    text = f"🔗 Партнёрка\n\n"
     text += f"💰 Приведи друга → 🪙 +{REF_JOIN_COINS} IKY\n"
     text += f"💰 Если друг купил доступ → 🪙 +{REF_BUY_COINS} IKY + 💵 +{REF_BUY_USD}$\n\n"
-    text += f"💼 Твой баланс: *{c} IKY* / *{d:.2f}$*\n\n"
+    text += f"💼 Твой баланс: {c} IKY / {d:.2f}$\n\n"
     
     if referrals:
-        text += "👥 *Твои рефералы:*\n"
+        text += "👥 Твои рефералы:\n"
         for uid_ref, username, first_name, reg_date in referrals:
             name = username or first_name or str(uid_ref)
             text += f"• @{name} — {reg_date[:10]}\n"
         text += f"\nВсего: {len(referrals)}"
     else:
-        text += "👥 *Пока нет рефералов.*\nПриводи друзей!"
+        text += "👥 Пока нет рефералов.\nПриводи друзей!"
     
-    text += f"\n\n🔗 Твоя партнёрская ссылка:\n`{link}`\n\n💸 Вывод $ — @managerai"
+    text += f"\n\n🔗 Твоя партнёрская ссылка:\n{link}\n\n💸 Вывод $ — @managerai"
     
-    await callback.message.answer(text, reply_markup=back_kb())
+    await safe_send_message(callback.from_user.id, text, reply_markup=back_kb())
 
 @dp.callback_query(F.data == "bal")
 async def cb_bal(callback: CallbackQuery, state: FSMContext):
@@ -946,20 +963,20 @@ async def cb_bal(callback: CallbackQuery, state: FSMContext):
     uid = callback.from_user.id
     link = f"https://t.me/{BOT_USERNAME}?start=ref_{uid}"
     
-    text = f"💼 *Твой баланс*\n🪙 {c} IKY\n💵 {d:.2f}$\n\n"
+    text = f"💼 Твой баланс\n🪙 {c} IKY\n💵 {d:.2f}$\n\n"
     
     if referrals:
-        text += "👥 *Твои рефералы:*\n"
+        text += "👥 Твои рефералы:\n"
         for uid_ref, username, first_name, reg_date in referrals:
             name = username or first_name or str(uid_ref)
             text += f"• @{name} — {reg_date[:10]}\n"
         text += f"\nВсего рефералов: {len(referrals)}"
     else:
-        text += "👥 *У тебя пока нет рефералов.*\nПриводи друзей и получай бонусы!"
+        text += "👥 У тебя пока нет рефералов.\nПриводи друзей и получай бонусы!"
     
-    text += f"\n\n🔗 Твоя партнёрская ссылка:\n`{link}`\n\n💸 Вывод $ — @managerai"
+    text += f"\n\n🔗 Твоя партнёрская ссылка:\n{link}\n\n💸 Вывод $ — @managerai"
     
-    await callback.message.answer(text, reply_markup=back_kb())
+    await safe_send_message(callback.from_user.id, text, reply_markup=back_kb())
 
 # ------------------------- АДМИНКА -------------------------
 @dp.message(Command("admin228"))
@@ -967,31 +984,31 @@ async def cmd_admin(message: Message, state: FSMContext):
     await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer("🔧 *Админ-панель*", reply_markup=admin_kb())
+    await safe_send_message(message.from_user.id, "🔧 Админ-панель", reply_markup=admin_kb())
 
 @dp.callback_query(F.data == "admin_backup")
 async def admin_backup(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
-    await callback.message.answer("⏳ Делаю бэкап...")
+    await safe_send_message(callback.from_user.id, "⏳ Делаю бэкап...")
     success = await backup_database()
     if success:
-        await callback.message.answer("✅ Бэкап создан и отправлен в Telegram!", reply_markup=admin_kb())
+        await safe_send_message(callback.from_user.id, "✅ Бэкап создан и отправлен в Telegram!", reply_markup=admin_kb())
     else:
-        await callback.message.answer("❌ Ошибка при создании бэкапа!", reply_markup=admin_kb())
+        await safe_send_message(callback.from_user.id, "❌ Ошибка при создании бэкапа!", reply_markup=admin_kb())
 
 @dp.callback_query(F.data == "admin_edit_main")
 async def admin_edit_main(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
     cur = await get_setting("main_text")
-    await callback.message.answer(f"Текущий текст:\n{cur}\n\nПришли новый:")
+    await safe_send_message(callback.from_user.id, f"Текущий текст:\n{cur}\n\nПришли новый:")
     await state.set_state(AdminEdit.waiting_main_text)
 
 @dp.message(AdminEdit.waiting_main_text)
 async def save_main_text(message: Message, state: FSMContext):
     await set_setting("main_text", message.text)
-    await message.answer("✅ Обновлено!")
+    await safe_send_message(message.from_user.id, "✅ Обновлено!")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1000,13 +1017,13 @@ async def admin_edit_alert(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
     cur = await get_setting("alert_text")
-    await callback.message.answer(f"Текущий алерт:\n{cur}\n\nИспользуй `{{remaining}}`, `{{price}}`, `{{rub}}`. Новый текст:")
+    await safe_send_message(callback.from_user.id, f"Текущий алерт:\n{cur}\n\nИспользуй {remaining}, {price}, {rub}. Новый текст:")
     await state.set_state(AdminEdit.waiting_alert_text)
 
 @dp.message(AdminEdit.waiting_alert_text)
 async def save_alert_text(message: Message, state: FSMContext):
     await set_setting("alert_text", message.text)
-    await message.answer("✅ Обновлено!")
+    await safe_send_message(message.from_user.id, "✅ Обновлено!")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1014,7 +1031,7 @@ async def save_alert_text(message: Message, state: FSMContext):
 async def admin_change_photo(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
-    await callback.message.answer("📸 *Смена фото*\n\nПришли новое фото:", parse_mode="Markdown")
+    await safe_send_message(callback.from_user.id, "📸 Смена фото\n\nПришли новое фото:")
     await state.set_state(AdminEdit.waiting_photo)
 
 @dp.message(AdminEdit.waiting_photo, F.photo)
@@ -1024,9 +1041,9 @@ async def save_photo(message: Message, state: FSMContext):
         file = await bot.get_file(photo.file_id)
         await bot.download_file(file.file_path, "main.jpg")
         await set_setting("main_photo", "main.jpg")
-        await message.answer("✅ Фото обновлено!", reply_markup=admin_kb())
+        await safe_send_message(message.from_user.id, "✅ Фото обновлено!", reply_markup=admin_kb())
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await safe_send_message(message.from_user.id, f"❌ Ошибка: {e}")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1034,7 +1051,7 @@ async def save_photo(message: Message, state: FSMContext):
 async def admin_change_gif(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
-    await callback.message.answer("🎬 *Смена гифки*\n\nПришли новую гифку (GIF):", parse_mode="Markdown")
+    await safe_send_message(callback.from_user.id, "🎬 Смена гифки\n\nПришли новую гифку (GIF):")
     await state.set_state(AdminEdit.waiting_gif)
 
 @dp.message(AdminEdit.waiting_gif, F.animation)
@@ -1043,9 +1060,9 @@ async def save_gif(message: Message, state: FSMContext):
         gif = message.animation
         file = await bot.get_file(gif.file_id)
         await bot.download_file(file.file_path, "iknow1.gif")
-        await message.answer("✅ Гифка обновлена!", reply_markup=admin_kb())
+        await safe_send_message(message.from_user.id, "✅ Гифка обновлена!", reply_markup=admin_kb())
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await safe_send_message(message.from_user.id, f"❌ Ошибка: {e}")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1053,7 +1070,7 @@ async def save_gif(message: Message, state: FSMContext):
 async def admin_broadcast(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
-    await callback.message.answer("Введи текст рассылки:")
+    await safe_send_message(callback.from_user.id, "Введи текст рассылки:")
     await state.set_state(AdminEdit.waiting_broadcast)
 
 @dp.message(AdminEdit.waiting_broadcast)
@@ -1065,12 +1082,12 @@ async def send_broadcast(message: Message, state: FSMContext):
     cnt = 0
     for (uid,) in users:
         try:
-            await bot.send_message(uid, text, parse_mode="Markdown")
+            await safe_send_message(uid, text)
             cnt += 1
             await asyncio.sleep(0.05)
         except:
             pass
-    await message.answer(f"✅ Отправлено {cnt} пользователям.")
+    await safe_send_message(message.from_user.id, f"✅ Отправлено {cnt} пользователям.")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1080,7 +1097,7 @@ async def admin_promos(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     promos = await list_promocodes()
     if not promos:
-        text = "📋 *Список промокодов пуст.*\n\n"
+        text = "📋 Список промокодов пуст.\n\n"
     else:
         active = []
         used = []
@@ -1090,35 +1107,36 @@ async def admin_promos(callback: CallbackQuery, state: FSMContext):
             else:
                 used.append((code, price, uses, expires))
         
-        text = "📋 *Промокоды:*\n\n"
+        text = "📋 Промокоды:\n\n"
         if active:
-            text += "✅ *Активные:*\n"
+            text += "✅ Активные:\n"
             for code, price, uses, expires in active:
-                text += f"• `{code}` — {price}$ (осталось {uses})"
+                text += f"• {code} — {price}$ (осталось {uses})"
                 if expires:
                     text += f", до {expires}"
                 text += "\n"
         else:
-            text += "✅ *Активные:* нет\n"
+            text += "✅ Активные: нет\n"
         if used:
-            text += "\n❌ *Использованные:*\n"
+            text += "\n❌ Использованные:\n"
             for code, price, uses, expires in used:
-                text += f"• `{code}` — {price}$ (использован)\n"
+                text += f"• {code} — {price}$ (использован)\n"
         else:
-            text += "\n❌ *Использованные:* нет\n"
-        text += "\n*Управление:*\n/add\\_promo - создать\n/del\\_promo - удалить\n/gen\\_promos - нагенерить"
+            text += "\n❌ Использованные: нет\n"
+        text += "\nУправление:\n/add_promo - создать\n/del_promo - удалить\n/gen_promos - нагенерить"
     
-    await callback.message.answer(text)
+    await safe_send_message(callback.from_user.id, text)
 
 @dp.callback_query(F.data == "admin_gen_promos")
 async def admin_gen_promos(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
-    await callback.message.answer(
-        "🎲 *Генерация промокодов*\n\n"
-        "Введи: `КОЛИЧЕСТВО ЦЕНА`\n"
-        "Пример: `50 35` — создаст 50 промокодов по 35$\n"
-        "Пример: `100 10` — создаст 100 промокодов по 10$\n\n"
+    await safe_send_message(
+        callback.from_user.id,
+        "🎲 Генерация промокодов\n\n"
+        "Введи: КОЛИЧЕСТВО ЦЕНА\n"
+        "Пример: 50 35 — создаст 50 промокодов по 35$\n"
+        "Пример: 100 10 — создаст 100 промокодов по 10$\n\n"
         "Коды будут вида: IKY7X9K2"
     )
     await state.set_state(AdminEdit.waiting_gen_promos)
@@ -1131,7 +1149,7 @@ async def process_gen_promos(message: Message, state: FSMContext):
     
     parts = message.text.split()
     if len(parts) != 2:
-        await message.answer("❌ Нужно два числа: КОЛИЧЕСТВО ЦЕНА")
+        await safe_send_message(message.from_user.id, "❌ Нужно два числа: КОЛИЧЕСТВО ЦЕНА")
         await state.clear()
         return
     
@@ -1140,21 +1158,21 @@ async def process_gen_promos(message: Message, state: FSMContext):
         price = int(parts[1])
         
         if count > 500:
-            await message.answer("❌ Максимум 500 за раз")
+            await safe_send_message(message.from_user.id, "❌ Максимум 500 за раз")
             await state.clear()
             return
         if price < 1 or price > 100:
-            await message.answer("❌ Цена от 1 до 100$")
+            await safe_send_message(message.from_user.id, "❌ Цена от 1 до 100$")
             await state.clear()
             return
         
         created = await generate_promos(count, price)
-        await message.answer(f"✅ Создано {created} промокодов по {price}$")
+        await safe_send_message(message.from_user.id, f"✅ Создано {created} промокодов по {price}$")
         await state.clear()
         await cmd_admin(message, state)
         
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await safe_send_message(message.from_user.id, f"❌ Ошибка: {e}")
         await state.clear()
 
 @dp.message(Command("gen_promos"))
@@ -1165,7 +1183,7 @@ async def cmd_gen_promos(message: Message, state: FSMContext):
     
     parts = message.text.split()
     if len(parts) != 3:
-        await message.answer("Использование: /gen_promos КОЛИЧЕСТВО ЦЕНА\nПример: /gen_promos 50 35")
+        await safe_send_message(message.from_user.id, "Использование: /gen_promos КОЛИЧЕСТВО ЦЕНА\nПример: /gen_promos 50 35")
         return
     
     try:
@@ -1173,31 +1191,31 @@ async def cmd_gen_promos(message: Message, state: FSMContext):
         price = int(parts[2])
         
         if count > 500:
-            await message.answer("❌ Максимум 500 за раз")
+            await safe_send_message(message.from_user.id, "❌ Максимум 500 за раз")
             return
         if price < 1 or price > 100:
-            await message.answer("❌ Цена от 1 до 100$")
+            await safe_send_message(message.from_user.id, "❌ Цена от 1 до 100$")
             return
         
         created = await generate_promos(count, price)
-        await message.answer(f"✅ Создано {created} промокодов по {price}$")
+        await safe_send_message(message.from_user.id, f"✅ Создано {created} промокодов по {price}$")
         
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await safe_send_message(message.from_user.id, f"❌ Ошибка: {e}")
 
 @dp.message(Command("add_promo"))
 async def cmd_add_promo(message: Message, state: FSMContext):
     await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer("Введи код промокода (латиница, цифры, без пробелов):")
+    await safe_send_message(message.from_user.id, "Введи код промокода (латиница, цифры, без пробелов):")
     await state.set_state(AdminEdit.waiting_promo_code)
 
 @dp.message(AdminEdit.waiting_promo_code)
 async def add_promo_code_name(message: Message, state: FSMContext):
     code = message.text.strip().upper()
     await state.update_data(code=code)
-    await message.answer("Введи цену в USD (целое число):")
+    await safe_send_message(message.from_user.id, "Введи цену в USD (целое число):")
     await state.set_state(AdminEdit.waiting_promo_price)
 
 @dp.message(AdminEdit.waiting_promo_price)
@@ -1205,10 +1223,10 @@ async def add_promo_price(message: Message, state: FSMContext):
     try:
         price = int(message.text)
         await state.update_data(price=price)
-        await message.answer("Введи количество использований (целое число, 1 = одноразовый):")
+        await safe_send_message(message.from_user.id, "Введи количество использований (целое число, 1 = одноразовый):")
         await state.set_state(AdminEdit.waiting_promo_uses)
     except:
-        await message.answer("❌ Введи целое число (цену).")
+        await safe_send_message(message.from_user.id, "❌ Введи целое число (цену).")
 
 @dp.message(AdminEdit.waiting_promo_uses)
 async def add_promo_uses(message: Message, state: FSMContext):
@@ -1218,9 +1236,9 @@ async def add_promo_uses(message: Message, state: FSMContext):
         code = data['code']
         price = data['price']
         await add_promo_code(code, price, uses)
-        await message.answer(f"✅ Промокод `{code}` добавлен: {price}$, использований: {uses}")
+        await safe_send_message(message.from_user.id, f"✅ Промокод {code} добавлен: {price}$, использований: {uses}")
     except:
-        await message.answer("❌ Введи целое число.")
+        await safe_send_message(message.from_user.id, "❌ Введи целое число.")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1229,14 +1247,14 @@ async def cmd_del_promo(message: Message, state: FSMContext):
     await state.clear()
     if message.from_user.id != ADMIN_ID:
         return
-    await message.answer("Введи код промокода для удаления:")
+    await safe_send_message(message.from_user.id, "Введи код промокода для удаления:")
     await state.set_state(AdminEdit.waiting_promo_delete)
 
 @dp.message(AdminEdit.waiting_promo_delete)
 async def del_promo_code(message: Message, state: FSMContext):
     code = message.text.strip().upper()
     await delete_promo_code(code)
-    await message.answer(f"✅ Промокод `{code}` удалён (если существовал).")
+    await safe_send_message(message.from_user.id, f"✅ Промокод {code} удалён (если существовал).")
     await state.clear()
     await cmd_admin(message, state)
 
@@ -1245,7 +1263,7 @@ async def admin_add_slots(callback: CallbackQuery, state: FSMContext):
     await safe(callback)
     await state.clear()
     r = await increase_slots(1)
-    await callback.message.answer(f"✅ +1 место. Осталось {r}.")
+    await safe_send_message(callback.from_user.id, f"✅ +1 место. Осталось {r}.")
     await cmd_admin(callback.message, state)
 
 @dp.callback_query(F.data == "admin_remove_slots")
@@ -1254,11 +1272,11 @@ async def admin_remove_slots(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     r = await get_remaining_slots()
     if r <= 0:
-        await callback.message.answer("❌ Нельзя убавить.")
+        await safe_send_message(callback.from_user.id, "❌ Нельзя убавить.")
         return
     await decrease_slots()
     r = await get_remaining_slots()
-    await callback.message.answer(f"✅ -1 место. Осталось {r}.")
+    await safe_send_message(callback.from_user.id, f"✅ -1 место. Осталось {r}.")
     await cmd_admin(callback.message, state)
 
 @dp.callback_query(F.data == "admin_reset_slots")
@@ -1267,7 +1285,7 @@ async def admin_reset_slots(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await reset_slots()
     r = await get_remaining_slots()
-    await callback.message.answer(f"✅ Сброс до 50. Осталось {r}.")
+    await safe_send_message(callback.from_user.id, f"✅ Сброс до 50. Осталось {r}.")
     await cmd_admin(callback.message, state)
 
 @dp.callback_query(F.data == "back_to_main")
@@ -1293,7 +1311,7 @@ async def cmd_stats(message: Message, state: FSMContext):
             coins = (await cur.fetchone())[0] or 0
         async with db.execute("SELECT SUM(dollars) FROM users") as cur:
             usd = (await cur.fetchone())[0] or 0.0
-    await message.answer(f"📊 Статистика:\n👥 {users}\n🚀 В клубе: {paid}\n💰 Выручка: {rev}$\n🪙 IKY в обороте: {coins}\n💵 $ к выплате: {usd:.2f}$")
+    await safe_send_message(message.from_user.id, f"📊 Статистика:\n👥 {users}\n🚀 В клубе: {paid}\n💰 Выручка: {rev}$\n🪙 IKY в обороте: {coins}\n💵 $ к выплате: {usd:.2f}$")
 
 @dp.message(Command("users"))
 async def cmd_users(message: Message, state: FSMContext):
@@ -1302,13 +1320,13 @@ async def cmd_users(message: Message, state: FSMContext):
         return
     rows = await all_users()
     if not rows:
-        await message.answer("Пусто.")
+        await safe_send_message(message.from_user.id, "Пусто.")
         return
-    text = "👥 *Пользователи:*\n"
+    text = "👥 Пользователи:\n"
     for uid, uname, fname, coins, usd in rows:
         name = fname or uname or str(uid)
-        text += f"`{uid}` {name} | 🪙{coins} | 💵{usd:.2f}$\n"
-    await message.answer(text)
+        text += f"{uid} {name} | 🪙{coins} | 💵{usd:.2f}$\n"
+    await safe_send_message(message.from_user.id, text)
 
 @dp.message(Command("give"))
 async def cmd_give(message: Message, state: FSMContext):
@@ -1317,22 +1335,22 @@ async def cmd_give(message: Message, state: FSMContext):
         return
     parts = message.text.split()
     if len(parts) != 2:
-        await message.answer("Использование: /give USER_ID")
+        await safe_send_message(message.from_user.id, "Использование: /give USER_ID")
         return
     try:
         uid = int(parts[1])
         if await has_access(uid):
-            await message.answer("Уже есть доступ.")
+            await safe_send_message(message.from_user.id, "Уже есть доступ.")
             return
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("REPLACE INTO purchases (user_id, paid_at, amount) VALUES (?,?,?)", (uid, datetime.now().isoformat(), 0))
             await db.commit()
         if await get_remaining_slots() > 0:
             await decrease_slots()
-        await bot.send_message(uid, f"✅ *Доступ в IKNOWYOU — AI активирован!*\n\n🔗 {AI_FORUM_INVITE_LINK}")
-        await message.answer(f"✅ Выдано {uid}")
+        await safe_send_message(uid, f"✅ Доступ в IKNOWYOU — AI активирован!\n\n🔗 {AI_FORUM_INVITE_LINK}")
+        await safe_send_message(message.from_user.id, f"✅ Выдано {uid}")
     except Exception as e:
-        await message.answer(f"❌ {e}")
+        await safe_send_message(message.from_user.id, f"❌ {e}")
 
 async def admin_balance_cmd(message: Message, is_coins: bool, sign: int, state: FSMContext):
     await state.clear()
@@ -1340,27 +1358,27 @@ async def admin_balance_cmd(message: Message, is_coins: bool, sign: int, state: 
         return
     parts = message.text.split()
     if len(parts) != 3:
-        await message.answer("Использование: /команда USER_ID СУММА")
+        await safe_send_message(message.from_user.id, "Использование: /команда USER_ID СУММА")
         return
     try:
         uid = int(parts[1])
         val = float(parts[2])
         if val <= 0:
-            await message.answer("Сумма > 0")
+            await safe_send_message(message.from_user.id, "Сумма > 0")
             return
         if sign == -1:
             ok = await deduct_balance(uid, coins=int(val) if is_coins else 0, usd=val if not is_coins else 0.0)
             if not ok:
-                await message.answer("Недостаточно средств")
+                await safe_send_message(message.from_user.id, "Недостаточно средств")
                 return
         else:
             if is_coins:
                 await add_balance(uid, coins=int(val))
             else:
                 await add_balance(uid, usd=val)
-        await message.answer(f"✅ Баланс {uid} обновлён")
+        await safe_send_message(message.from_user.id, f"✅ Баланс {uid} обновлён")
     except:
-        await message.answer("Ошибка")
+        await safe_send_message(message.from_user.id, "Ошибка")
 
 @dp.message(Command("addcoins"))
 async def cmd_addcoins(m: Message, state: FSMContext): await admin_balance_cmd(m, True, 1, state)
